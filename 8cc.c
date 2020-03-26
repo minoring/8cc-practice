@@ -15,22 +15,64 @@ void error(char *fmt, ...)
         exit(1);
 }
 
-void compile_number(int n)
+void skip_space(void)
 {
         int c;
         while ((c = getc(stdin)) != EOF) {
                 if (isspace(c))
-                        break;
-                if (!isdigit(c))
-                        error("Invalid character in number: '%c'", c);
+                        continue;
+                ungetc(c, stdin);
+                return;
+        }
+}
+
+int read_number(int n)
+{
+        int c;
+        while (c = getc(stdin) != EOF) {
+                if (!isdigit(c)) {
+                        ungetc(c, stdin);
+                        return n;
+                }
                 n = n * 10 + (c - '0');
         }
+}
+
+void compile_expr2(void)
+{
+        for (;;) {
+                skip_space();
+                int c = getc(stdin);
+                if (c == EOF) {
+                        printf("ret\n");
+                        exit(0);
+                }
+                char *op;
+                if (c == '+')
+                        op = "add";
+                else if (c == '-')
+                        op = "sub";
+                else
+                        error("Operator expected, but got '%c'", c);
+
+                skip_space();
+                c = getc(stdin);
+                if (!isdigit(c))
+                        error("Number expected, but got '%c'", c);
+
+                printf("%s $%d, %%rax\n\t", op, read_number(c - '0'));
+        }
+}
+
+void compile_expr(int n)
+{
+        n = read_number(n);
         printf(".text\n\t"
                ".global intfn\n"
                "intfn:\n\t"
-               "mov $%d, %%rax\n\t"
-               "ret\n",
+               "mov $%d, %%rax\n\t",
                n);
+        compile_expr2();
 }
 
 void compile_string(void)
@@ -62,6 +104,7 @@ void compile_string(void)
                "lea .mydata(%%rip), %%rax\n\t"
                "ret\n",
                buf);
+        exit(0);
 }
 
 void compile(void)
