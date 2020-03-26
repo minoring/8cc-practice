@@ -29,7 +29,7 @@ void skip_space(void)
 int read_number(int n)
 {
         int c;
-        while (c = getc(stdin) != EOF) {
+        while ((c = getc(stdin)) != EOF) {
                 if (!isdigit(c)) {
                         ungetc(c, stdin);
                         return n;
