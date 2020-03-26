@@ -111,7 +111,7 @@ void compile(void)
 {
         int c = getc(stdin);
         if (isdigit(c))
-                return compile_number(c - '0');
+                return compile_expr(c - '0');
         if (c == '"')
                 return compile_string();
         error("Don't know how to handle '%c'", c);
