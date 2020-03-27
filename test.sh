@@ -14,7 +14,7 @@ function compile {
 }
 
 function assertequal {
-  if [[ "$1" -ne "$2" ]]; then
+  if [[ "$1" != "$2" ]]; then
     echo "Test failed: %2 expected but got $1"
     exit
   fi
