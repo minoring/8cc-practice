@@ -7,8 +7,6 @@
 #define BUFLEN 256
 
 enum {
-  AST_OP_PLUS,
-  AST_OP_MINUS,
   AST_INT,
   AST_STR,
 };
@@ -76,6 +74,20 @@ void skip_space(void)
   }
 }
 
+int priority(char op)
+{
+  switch (op) {
+  case '+':
+  case '-':
+    return 1;
+  case '*':
+  case '/':
+    return 2;
+  default:
+    error("Unknown binary operator: %c', op");
+  }
+}
+
 Ast *read_number(int n)
 {
   for (;;) {
@@ -100,24 +112,23 @@ Ast *read_prim(void)
   error("Don't know how to handle '%c'", c);
 }
 
-Ast *read_expr2(Ast *left)
+Ast *read_expr2(int prec)
 {
-  skip_space();
-  int c = getc(stdin);
-  if (c == EOF)
-    return left;
-
-  int op;
-  if (c == '+')
-    op = AST_OP_PLUS;
-  else if (c == '-')
-    op = AST_OP_MINUS;
-  else
-    error("Operator expected, but got '%c'", c);
-  skip_space();
-
-  Ast *right = read_prim();
-  return read_expr2(make_ast_op(op, left, right));
+  Ast *ast = read_prim();
+  for (;;) {
+    skip_space();
+    int c = getc(stdin);
+    if (c == EOF)
+      return ast;
+    int prec2 = priority(c);
+    if (prec2 < prec) {
+      ungetc(c, stdin);
+      return ast;
+    }
+    skip_space();
+    ast = make_ast_op(c, ast, read_expr2(prec + 1));
+  }
+  return ast;
 }
 
 Ast *read_string(void)
@@ -144,11 +155,7 @@ Ast *read_string(void)
   return make_ast_str(buf);
 }
 
-Ast *read_expr(void)
-{
-  Ast *left = read_prim();
-  return read_expr2(left);
-}
+Ast *read_expr(void) { return read_expr2(0); }
 
 void print_quote(char *p)
 {
@@ -178,24 +185,48 @@ void emit_string(Ast *ast)
 void emit_binop(Ast *ast)
 {
   char *op;
-  if (ast->type == AST_OP_PLUS)
+  switch (ast->type) {
+  case '+':
     op = "add";
-  else if (ast->type == AST_OP_MINUS)
+    break;
+  case '-':
     op = "sub";
-  else
-    error("Invalid operand");
-
+    break;
+  case '*':
+    op = "imul";
+    break;
+  case '/':
+    break;
+  default:
+    error("Invalid operator '%c'", ast->type);
+  }
   emit_intexpr(ast->left);
-  printf("mov %%eax, %%ebx\n\t");
+  printf("push %%rax\n\t");
   emit_intexpr(ast->right);
-  printf("%s %%ebx, %%eax\n\t", op);
+
+  if (ast->type == '/') {
+    printf("mov %%eax, %%ebx\n\t");
+    printf("pop %%rax\n\t");
+    printf("mov $0, %%edx\n\t");
+    printf("idiv %%ebx\n\t");
+  } else {
+    printf("pop %%rbx\n\t");
+    printf("%s %%ebx, %%eax\n\t", op);
+  }
 }
 
 void ensure_intexpr(Ast *ast)
 {
-  if (ast->type != AST_OP_PLUS && ast->type != AST_OP_MINUS &&
-      ast->type != AST_INT)
-    error("Integer or binary operator expected");
+  switch (ast->type) {
+    case '+':
+    case '-':
+    case '*':
+    case '/':
+    case AST_INT:
+      return;
+    default:
+      error("Integer or binary operator expected");
+  }
 }
 
 void emit_intexpr(Ast *ast)
@@ -210,25 +241,18 @@ void emit_intexpr(Ast *ast)
 void print_ast(Ast *ast)
 {
   switch (ast->type) {
-  case AST_OP_PLUS:
-    printf("(+ ");
-    goto print_op;
-  case AST_OP_MINUS:
-    printf("(- ");
-  print_op:
-    print_ast(ast->left);
-    printf(" ");
-    print_ast(ast->right);
-    printf(")");
-    break;
   case AST_INT:
     printf("%d", ast->ival);
     break;
   case AST_STR:
-    print_quote(ast->sval);
+    print_quote(ast->ival);
     break;
   default:
-    error("Should not reach here");
+    printf("(%c ", ast->type);
+    print_ast(ast->left);
+    printf(" ");
+    print_ast(ast->right);
+    printf(")");
   }
 }
 
