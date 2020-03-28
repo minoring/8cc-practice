@@ -245,7 +245,7 @@ void print_ast(Ast *ast)
     printf("%d", ast->ival);
     break;
   case AST_STR:
-    print_quote(ast->ival);
+    print_quote(ast->sval);
     break;
   default:
     printf("(%c ", ast->type);
