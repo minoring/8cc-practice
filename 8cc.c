@@ -12,7 +12,7 @@ enum {
 };
 
 typedef struct Ast {
-  int type;
+  char type;
   union {
     int ival;
     char *sval;
@@ -38,9 +38,9 @@ void error(char *fmt, ...)
   exit(1);
 }
 
-Ast *make_ast_op(int type, Ast *left, Ast *right)
+Ast *make_ast_op(char type, Ast *left, Ast *right)
 {
-  Ast *r = (Ast *)malloc(sizeof(Ast));
+  Ast *r = malloc(sizeof(Ast));
   r->type = type;
   r->left = left;
   r->right = right;
@@ -49,7 +49,7 @@ Ast *make_ast_op(int type, Ast *left, Ast *right)
 
 Ast *make_ast_int(int val)
 {
-  Ast *r = (Ast *)malloc(sizeof(Ast));
+  Ast *r = malloc(sizeof(Ast));
   r->type = AST_INT;
   r->ival = val;
   return r;
@@ -57,7 +57,7 @@ Ast *make_ast_int(int val)
 
 Ast *make_ast_str(char *str)
 {
-  Ast *r = (Ast *)malloc(sizeof(Ast));
+  Ast *r = malloc(sizeof(Ast));
   r->type = AST_STR;
   r->sval = str;
   return r;
@@ -84,7 +84,7 @@ int priority(char op)
   case '/':
     return 2;
   default:
-    error("Unknown binary operator: %c', op");
+    error("Unknown binary operator: %c", op);
   }
 }
 
@@ -96,7 +96,7 @@ Ast *read_number(int n)
       ungetc(c, stdin);
       return make_ast_int(n);
     }
-    n = n * 10 + ('c' - '0');
+    n = n * 10 + (c - '0');
   }
 }
 
@@ -126,16 +126,15 @@ Ast *read_expr2(int prec)
       return ast;
     }
     skip_space();
-    ast = make_ast_op(c, ast, read_expr2(prec + 1));
+    ast = make_ast_op(c, ast, read_expr2(prec2 + 1));
   }
   return ast;
 }
 
 Ast *read_string(void)
 {
-  char *buf = (char *)malloc(BUFLEN);
+  char *buf = malloc(BUFLEN);
   int i = 0;
-
   for (;;) {
     int c = getc(stdin);
     if (c == EOF)
@@ -198,12 +197,11 @@ void emit_binop(Ast *ast)
   case '/':
     break;
   default:
-    error("Invalid operator '%c'", ast->type);
+    error("invalid operator '%c'", ast->type);
   }
   emit_intexpr(ast->left);
   printf("push %%rax\n\t");
   emit_intexpr(ast->right);
-
   if (ast->type == '/') {
     printf("mov %%eax, %%ebx\n\t");
     printf("pop %%rax\n\t");
@@ -218,14 +216,14 @@ void emit_binop(Ast *ast)
 void ensure_intexpr(Ast *ast)
 {
   switch (ast->type) {
-    case '+':
-    case '-':
-    case '*':
-    case '/':
-    case AST_INT:
-      return;
-    default:
-      error("Integer or binary operator expected");
+  case '+':
+  case '-':
+  case '*':
+  case '/':
+  case AST_INT:
+    return;
+  default:
+    error("integer or binary operator expected");
   }
 }
 
